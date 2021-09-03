@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="pixi.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+
+
+    const app = new PIXI.Application({ backgroundColor: 0x1099bb });
+    document.body.appendChild(app.view);
+
+
+    // Very simple tweening utility function. This should be replaced with a proper tweening library in a real product.
+    const tweening = [];
+    function tweenTo(object, property, target, time, easing, onchange, oncomplete) {
+        const tween = {
+            object,
+            property,
+            propertyBeginValue: object[property],
+            target,
+            easing,
+            time,
+            change: onchange,
+            complete: oncomplete,
+            start: Date.now(),
+        };
+
+        tweening.push(tween);
+        return tween;
+    }
+    // Listen for animate update.
+    app.ticker.add((delta) => {
+        const now = Date.now();
+        const remove = [];
+        for (let i = 0; i < tweening.length; i++) {
+            const t = tweening[i];
+            const phase = Math.min(1, (now - t.start) / t.time);
+
+            t.object[t.property] = lerp(t.propertyBeginValue, t.target, t.easing(phase));
+            if (t.change) t.change(t);
+            if (phase === 1) {
+                t.object[t.property] = t.target;
+                if (t.complete) t.complete(t);
+                remove.push(t);
+            }
+        }
+        for (let i = 0; i < remove.length; i++) {
+            tweening.splice(tweening.indexOf(remove[i]), 1);
+        }
+    });
+
+    // Backout function from tweenjs.
+    // https://github.com/CreateJS/TweenJS/blob/master/src/tweenjs/Ease.js
+    function backout(amount) {
+        return (t) => (--t * t * ((amount + 1) * t + amount) + 1);
+    }
+    // Basic lerp funtion.
+    function lerp(a1, a2, t) {
+        return a1 * (1 - t) + a2 * t;
+    }
+
+    // create a texture from an image path
+    const texture = PIXI.Texture.from('./bunny.png');
+
+    // Scale mode for pixelation
+    texture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+
+    for (let i = 0; i < 10; i++) {
+        createBunny(
+            Math.floor(Math.random() * app.screen.width),
+            Math.floor(Math.random() * app.screen.height),
+        );
+    }
+
+    function createBunny(x, y) {
+        // create our little bunny friend..
+        const bunny = new PIXI.Sprite(texture);
+
+        // enable the bunny to be interactive... this will allow it to respond to mouse and touch events
+        bunny.interactive = true;
+
+        // this button mode will mean the hand cursor appears when you roll over the bunny with your mouse
+        bunny.buttonMode = true;
+
+        // center the bunny's anchor point
+        bunny.anchor.set(0.5);
+
+        // make it a bit bigger, so it's easier to grab
+        bunny.scale.set(3);
+
+        // setup events for mouse + touch using
+        // the pointer events
+        bunny
+            .on('pointerdown', onDragStart)
+            .on('pointerup', onDragEnd)
+            .on('pointerupoutside', onDragEnd)
+            .on('pointermove', onDragMove);
+
+        // For mouse-only events
+        // .on('mousedown', onDragStart)
+        // .on('mouseup', onDragEnd)
+        // .on('mouseupoutside', onDragEnd)
+        // .on('mousemove', onDragMove);
+
+        // For touch-only events
+        // .on('touchstart', onDragStart)
+        // .on('touchend', onDragEnd)
+        // .on('touchendoutside', onDragEnd)
+        // .on('touchmove', onDragMove);
+
+        // move the sprite to its designated position
+        bunny.x = x;
+        bunny.y = y;
+
+        // add it to the stage
+        app.stage.addChild(bunny);
+    }
+
+    function onDragStart(event) {
+        // store a reference to the data
+        // the reason for this is because of multitouch
+        // we want to track the movement of this particular touch
+        this.data = event.data;
+        this.alpha = 0.5;
+        this.dragging = true;
+
+        this.sx = this.data.getLocalPosition(this).x * this.scale.x;
+        this.sy = this.data.getLocalPosition(this).y * this.scale.y;
+        this.dx = 0;
+        this.dy = 0;
+    }
+
+    function onDragEnd() {
+        this.alpha = 1;
+        this.dragging = false;
+        console.log("DELTA:",this.deltaX,this.deltaY)
+
+        console.log(this.x,this.y,this.sx,this.sy)
+        // set the interaction data to null
+        this.data = null;
+        console.log(this.dx,this.dy)
+
+        const time = 300;
+
+        tweenTo(this, 'x', this.position.x - this.dx * 5, time, backout(0.5), null, null);
+        tweenTo(this, 'y', this.position.y - this.dy * 5, time, backout(0.5), null, null);
+    }
+
+    function onDragMove() {
+        if (this.dragging) {
+            const newPosition = this.data.getLocalPosition(this.parent);
+            this.dx = this.position.x - (newPosition.x - this.sx)
+            this.dy = this.position.y - (newPosition.y - this.sy)
+            this.position.x = newPosition.x - this.sx;
+            this.position.y = newPosition.y - this.sy;
+            console.log(newPosition.x,newPosition.y)
+        }
+    }
+
+</script>
+</body>
+</html>
